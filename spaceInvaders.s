@@ -4,7 +4,7 @@
 
 .data 
 FILE: .asciiz "space_open.bin"
-LIT:	.asciiz "enterz.bin"
+LIT:	.asciiz "enter.bin"
 .text
 
 # Preenche a tela de preto	#aberto a modificações e melhorias. Ex: musica de entrada... frase de impacto
@@ -52,7 +52,7 @@ OK:	addi $t7, $t7, -1
 	addi $s2, $s2, 268
 	addi $t1, $t1, 320
 	bne $t7, $zero, APAGA
-	li $a0, 500			#isto terá que ser alterado para verificar se alguma tecla foi teclada
+	li $a0, 1000			#isto terá que ser alterado para verificar se alguma tecla foi teclada
 	jal SLEEP
 	
 	li $s2,0xFF000000
@@ -70,12 +70,12 @@ OK:	addi $t7, $t7, -1
 	addi $t1, $zero, 12	
 FILL:	beq $t1, $zero, DONE
 	move $a0,$t7
-	move $a1, $s2			#nao ta lendo direito. Resolver.
-	li $a2,51
+	move $a1, $s2			
+	li $a2,52
 	li $v0,14
 	syscall
 	addi $t1, $t1, -1
-	addi $s2, $s2, 321
+	addi $s2, $s2, 320
 	j FILL
 	
 DONE:	#fecha o arquivo
