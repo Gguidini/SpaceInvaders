@@ -4,7 +4,7 @@
 
 .data 
 FILE: .asciiz "space_open.bin"
-LIT:	.asciiz "enter.bin"
+LIT:	.asciiz "enterz.bin"
 .text
 
 # Preenche a tela de preto	#aberto a modificações e melhorias. Ex: musica de entrada... frase de impacto
@@ -67,15 +67,15 @@ OK:	addi $t7, $t7, -1
 	
 	#lendo linha por linha
 	move $t7, $v0
-	addi $t1, $zero, 12
+	addi $t1, $zero, 12	
 FILL:	beq $t1, $zero, DONE
 	move $a0,$t7
 	move $a1, $s2			#nao ta lendo direito. Resolver.
-	li $a2,50
+	li $a2,51
 	li $v0,14
 	syscall
 	addi $t1, $t1, -1
-	addi $s2, $s2, 320
+	addi $s2, $s2, 321
 	j FILL
 	
 DONE:	#fecha o arquivo
