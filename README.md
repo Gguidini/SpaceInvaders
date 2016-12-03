@@ -5,7 +5,7 @@ Project by Giovanni M Guidini, Vitor Dullens and Gabriel Rolf for the University
 The classic game Space Invaders rebuilt by us the best we could. More will be add has the project continues.
 
 ##To-do
-  [ ] Make the game work
-  [ ] Sprites design
-  [ ] Solve the blinking problem
-  [ ] Add sounds
+-  [ ] Make the game work
+-  [ ] Sprites design
+-  [ ] Solve the blinking problem
+-  [ ] Add sounds
