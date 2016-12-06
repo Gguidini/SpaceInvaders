@@ -7,7 +7,8 @@ FILE: 	.asciiz "space_open.bin"
 LIT:	.asciiz "enter.bin"
 LVL: 	.asciiz "lvl.bin"
 SPRITE:	.asciiz "sprites.bin"
-ENEMY:	.space 128
+INIMIGO: .asciiz "inimigo.bin"
+ENEMY:	.word 0xFF000F0A, 0xFF000F33, 0xFF000F5B, 0xFF000F83, 0xFF000FAB, 0xFF000FD3, 0xFF000FFB, 0xFF001023, 0xff00320a
 
 .text
 ########### ABRE A TELA DE INICIO #################
@@ -159,42 +160,22 @@ ADJUST: addi $t0, $t0, 20 # prepara pra proxima linha
 	j LINHA
 
 	# mostrar player e inimigos na tela
-SAI:	
-
-	# primeiro o player
-	move $t4, $sp # guarda o endereço da stack em t4
-	li $t6, 8 # sao 8 linhas
-	li $t7, 5 #sao 5 words por linha do player
-P:	lw $t8, 0($t4) # carrega primeiro word do sprite player
-	sw $t8, 0($s6)
-	addi $t4, $t4, 4 # proximo word do player
-	addi $s6, $s6, 4 # proximo address para mostrar na tela
-	addi $t7, $t7, -1 # diminui uma word
-	bne $t7, $zero, P
+SAI:	jal MPLAYA #mostra player
 	
-	addi $s6, $s6, 300 # frist address, next line
-	addi $t6, $t6, -1
-	li $t7, 5
-	bne $t6, $zero, P
-	
-	# primeira fila de inimigos
-	addi $t4, $sp, 160 # guarda o endereço em que esta a primeira word do inimigo
-	li $t6, 9 # sao 9 linhas
-	li $t7, 5 #sao 5 words por linha de inimigo
-	la $t3, ENEMY # address do vetor de inimigos
-	lw $t5, 0($t3) # address do primeiro inimigo
-E:	lw $t8, 0($t4) # carrega primeiro word do sprite inimigo
-	sw $t8, 0($t5) # salva primeira word no lugar certo
-	addi $t4, $t4, 4 # proximo word do inmigo
-	addi $t5, $t5, 4 # proximo address para mostrar na tela
-	addi $t7, $t7, -1 # diminui uma word
-	bne $t7, $zero, E
-	
-	addi $t5, $t5, 300 # frist address, next line
-	addi $t6, $t6, -1
-	li $t7, 5
-	bne $t6, $zero, E
-	
+	# abre arquivo com os sprites dos inimigos
+	la $a0, INIMIGO
+	jal ABRE
+	move $s0, $v0
+	# le os inimigos pra tela
+	move $a0, $s0
+	li $a1, 0xFF000000 # conforme le aumenta os memory address, mas a stack diminui. Entao a imagem vai ficar invertida.
+	li $a2, 38400 # bytes para leitura
+	li $v0,14
+	syscall
+	# fecha arquivo dos inimigos
+	move $a0, $s0
+	jal FECHA
+	# para mostrar inimigos ler arquivo de inimigos começando na posição correta (which God knows what is)
 	j FIM
 ############################################## FUNCTIONS #########################################################
 #facilitando a chamada do sleep. $a0 deve conter o delay em milissegundos
@@ -224,6 +205,22 @@ FECHA: 	# colocar em $a0 o file descriptor
 	syscall
 	jr $ra
 	
+### mostrar o sprite do player
+MPLAYA:	move $t4, $sp # guarda o endereço da stack em t4
+	li $t6, 8 # sao 8 linhas
+	li $t7, 5 #sao 5 words por linha do player
+P:	lw $t8, 0($t4) # carrega primeiro word do sprite player
+	sw $t8, 0($s6)
+	addi $t4, $t4, 4 # proximo word do player
+	addi $s6, $s6, 4 # proximo address para mostrar na tela
+	addi $t7, $t7, -1 # diminui uma word
+	bne $t7, $zero, P
+	
+	addi $s6, $s6, 300 # frist address, next line
+	addi $t6, $t6, -1
+	li $t7, 5
+	bne $t6, $zero, P
+	jr $ra
 ### Finaliza o programa		
 FIM:	li $v0,10
 	syscall
