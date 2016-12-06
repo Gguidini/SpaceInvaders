@@ -99,16 +99,22 @@ DONE:	#fecha o arquivo
 # primeiro lê e mostra o background 
 ABERTURA: 	la $a0, LVL
 		jal ABRE
+		move $s0, $v0 #salva file descriptor em $S0
+		
 	# mostrando background na tela 	
-	move $a0,$v0
+	move $a0,$s0
 	la $a1,0xFF000000
 	li $a2,76800
 	li $v0,14
 	syscall
 	
 	# fechando arquivo do background
+	move $a0, $s0
 	jal FECHA
 	
+	# consistency check				# remover depois
+	li $a0, 2000
+	jal SLEEP
 ### salvando o design dos inimigos pra stack
 	# abre space na stack
 	addi $sp, $sp, -880
@@ -120,14 +126,18 @@ ABERTURA: 	la $a0, LVL
 	
 	# lendo os arquivos na stack
 	move $a0, $s7
-	addi $a1, $sp, 880
-	li $a2,880
+	move $a1, $sp # conforme le aumenta os memory address, mas a stack diminui. Entao a imagem vai ficar invertida.
+	li $a2,880 # bytes para leitura
 	li $v0,14
 	syscall
 	
+	#fechando o arquivo dos sprites
+	move $a0, $s7
+	jal FECHA
+	
 	# carregando positions iniciais dos inimigos e player
 	addi $s6, $zero, 0xFF000000 # primeiro address da memoria VGA
-	addi $s6, $s6, 67356 # primeiro address do player na tela
+	addi $s6, $s6, 64792 # primeiro address do player na tela
 	
 	la $s1, ENEMY # salva o address do vetor de inimigos em $s1
 	li $t0, 3846
@@ -155,18 +165,37 @@ SAI:
 	move $t4, $sp # guarda o endereço da stack em t4
 	li $t6, 8 # sao 8 linhas
 	li $t7, 5 #sao 5 words por linha do player
-P:	lw $t8, 880($t4) # carrega primeiro word do sprite player
+P:	lw $t8, 0($t4) # carrega primeiro word do sprite player
 	sw $t8, 0($s6)
-	addi $t4, $t4, -4 # proximo word do player
+	addi $t4, $t4, 4 # proximo word do player
 	addi $s6, $s6, 4 # proximo address para mostrar na tela
 	addi $t7, $t7, -1 # diminui uma word
 	bne $t7, $zero, P
 	
 	addi $s6, $s6, 300 # frist address, next line
 	addi $t6, $t6, -1
+	li $t7, 5
 	bne $t6, $zero, P
-	j FIM
 	
+	# primeira fila de inimigos
+	addi $t4, $sp, 160 # guarda o endereço em que esta a primeira word do inimigo
+	li $t6, 9 # sao 9 linhas
+	li $t7, 5 #sao 5 words por linha de inimigo
+	la $t3, ENEMY # address do vetor de inimigos
+	lw $t5, 0($t3) # address do primeiro inimigo
+E:	lw $t8, 0($t4) # carrega primeiro word do sprite inimigo
+	sw $t8, 0($t5) # salva primeira word no lugar certo
+	addi $t4, $t4, 4 # proximo word do inmigo
+	addi $t5, $t5, 4 # proximo address para mostrar na tela
+	addi $t7, $t7, -1 # diminui uma word
+	bne $t7, $zero, E
+	
+	addi $t5, $t5, 300 # frist address, next line
+	addi $t6, $t6, -1
+	li $t7, 5
+	bne $t6, $zero, E
+	
+	j FIM
 ############################################## FUNCTIONS #########################################################
 #facilitando a chamada do sleep. $a0 deve conter o delay em milissegundos
 SLEEP:	li $v0, 32
