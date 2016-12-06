@@ -3,8 +3,11 @@
 ###################################
 
 .data 
-FILE: .asciiz "space_open.bin"
+FILE: 	.asciiz "space_open.bin"
 LIT:	.asciiz "enter.bin"
+LVL: 	.asciiz "lvl.bin"
+SPRITE:	.asciiz "sprites.bin"
+ENEMY:	.space 128
 
 .text
 ########### ABRE A TELA DE INICIO #################
@@ -19,7 +22,7 @@ LOOP: 	beq $s2,$t1,FORA
 FORA:
 
 # Abre o arquivo do space_open
-ABRE:	la $a0,FILE
+	la $a0,FILE
 	li $a1,0
 	li $a2,0
 	li $v0,13
@@ -34,7 +37,7 @@ ABRE:	la $a0,FILE
 	syscall
 
 #Fecha o arquivo
-FECHA:	move $a0,$s1
+	move $a0,$s1
 	li $v0,16
 	syscall
 ########### PISCA O ENTER E AGUARDA TECLA PARA INICIO ##############
@@ -92,6 +95,79 @@ DONE:	#fecha o arquivo
 	li $a0, 1000 # espera 1s depois do recolocar o ENTER 
 	jal SLEEP
 	j PISCA # faz todo o processo de novo
+############ ABRE A TELA INICIAL DE JOGO #####################################
+# primeiro lê e mostra o background 
+ABERTURA: 	la $a0, LVL
+		jal ABRE
+	# mostrando background na tela 	
+	move $a0,$v0
+	la $a1,0xFF000000
+	li $a2,76800
+	li $v0,14
+	syscall
+	
+	# fechando arquivo do background
+	jal FECHA
+	
+### salvando o design dos inimigos pra stack
+	# abre space na stack
+	addi $sp, $sp, -880
+	
+	# abre o arquivo com os sprites
+	la $a0, SPRITE
+	jal ABRE
+	move $s7, $v0 # salva file descriptor no $s7
+	
+	# lendo os arquivos na stack
+	move $a0, $s7
+	addi $a1, $sp, 880
+	li $a2,880
+	li $v0,14
+	syscall
+	
+	# carregando positions iniciais dos inimigos e player
+	addi $s6, $zero, 0xFF000000 # primeiro address da memoria VGA
+	addi $s6, $s6, 67356 # primeiro address do player na tela
+	
+	la $s1, ENEMY # salva o address do vetor de inimigos em $s1
+	li $t0, 3846
+	addi $t0, $t0, 0xFF000000 # VGA address do primeiro inimigo
+	li $t3, 8 # numero de inimigos por linha
+	li $t2, 4 # linhas de inimigos
+LINHA:	beq $t2, $zero, SAI # se encher todas as linhas, sai
+	li $t1, 0 # vai incrementar em cada linha até virar 8
+	
+COLUNA: beq $t1, $t3, ADJUST #sai quando completar uma linha
+	sw $t0, 0($s1) # salva endereço do inimigo
+	addi $t0, $t0, 40 # address do proximo inimigo na linha
+	addi $s1, $s1, 4 # proximo inteiro de enemy 
+	addi $t1, $t1, 1 # incrementa contador
+	j COLUNA
+	
+ADJUST: addi $t0, $t0, 20 # prepara pra proxima linha
+	addi $t2, $t2, -1
+	j LINHA
+
+	# mostrar player e inimigos na tela
+SAI:	
+
+	# primeiro o player
+	move $t4, $sp # guarda o endereço da stack em t4
+	li $t6, 8 # sao 8 linhas
+	li $t7, 5 #sao 5 words por linha do player
+P:	lw $t8, 880($t4) # carrega primeiro word do sprite player
+	sw $t8, 0($s6)
+	addi $t4, $t4, -4 # proximo word do player
+	addi $s6, $s6, 4 # proximo address para mostrar na tela
+	addi $t7, $t7, -1 # diminui uma word
+	bne $t7, $zero, P
+	
+	addi $s6, $s6, 300 # frist address, next line
+	addi $t6, $t6, -1
+	bne $t6, $zero, P
+	j FIM
+	
+############################################## FUNCTIONS #########################################################
 #facilitando a chamada do sleep. $a0 deve conter o delay em milissegundos
 SLEEP:	li $v0, 32
 	syscall
@@ -103,9 +179,22 @@ ECHO2:	la $t1,0xFF100000
 	andi $t0,$t0,0x0001		# Le bit de Controle Teclado
    	beq $t0,$zero,PULA   	   	# Se não há tecla pressionada PULA
   	lw $t2,4($t1)  		# Tecla lida
-	j FIM	# vai pro começo do jogo... when ready. por enquanto encerra
+	j ABERTURA	# vai pro começo do jogo... when ready. por enquanto encerra
 PULA:	jr $ra
 
-			
+### Abre arquivos no meio do jogo
+ABRE:	# colocar em $a0 o address do arquivo a ser lido
+	li $a1,0
+	li $a2,0
+	li $v0,13
+	syscall
+	jr $ra
+### Fecha arquivos no meio do jogo
+FECHA: 	# colocar em $a0 o file descriptor
+	li $v0,16
+	syscall
+	jr $ra
+	
+### Finaliza o programa		
 FIM:	li $v0,10
 	syscall
