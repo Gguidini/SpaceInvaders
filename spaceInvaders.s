@@ -1,6 +1,10 @@
 ###################################
 # SPACE INVADERS - ASSEMBLY MIPS  #
 ###################################
+.eqv maskD 100
+.eqv maskA 97
+.eqv maskSPACE 32
+.eqv maskBLACK 0x00000000
 
 .data 
 FILE: 	.asciiz "space_open.bin"
@@ -8,8 +12,10 @@ LIT:	.asciiz "enter.bin"
 LVL: 	.asciiz "lvl.bin"
 SPRITE:	.asciiz "sprites.bin"
 INIMIGO: .asciiz "inimigo.bin"
-ENEMY:	.word 0xFF000F0A, 0xFF000F33, 0xFF000F5B, 0xFF000F83, 0xFF000FAB, 0xFF000FD3, 0xFF000FFB, 0xFF001023, 0xff00320a
-
+ENEMY:	.word 0xFF000F0A, 0xFF000F33, 0xFF000F5B, 0xFF000F83, 0xFF000FAB, 0xFF000FD3, 0xFF000FFB, 0xFF001023, 0xff00320a, 0xff003233,
+		0xff00325b, 0xff003283, 0xff0032ab, 0xff0032d3, 0xff0032fb, 0xff003323, 0xff00550A, 0xff005533, 0xff00555b, 0xff005583, 0xff0055ab,
+		0xff0055d3, 0xff0055fb, 0xff005623, 0xff00780a, 0xff007833, 0xff00785b, 0xff007883, 0xff0078ab, 0xff0078d3, 0xff0078fb, 0xff007923
+PSHOT:	.word 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 .text
 ########### ABRE A TELA DE INICIO #################
 # Preenche a tela de preto	#aberto a modificações e melhorias. Ex: musica de entrada... frase de impacto
@@ -167,16 +173,23 @@ SAI:	jal MPLAYA #mostra player
 	jal ABRE
 	move $s0, $v0
 	# le os inimigos pra tela
-	move $a0, $s0
-	li $a1, 0xFF000000 # conforme le aumenta os memory address, mas a stack diminui. Entao a imagem vai ficar invertida.
-	li $a2, 38400 # bytes para leitura
-	li $v0,14
-	syscall
+	jal MENEMY
 	# fecha arquivo dos inimigos
 	move $a0, $s0
 	jal FECHA
-	# para mostrar inimigos ler arquivo de inimigos começando na posição correta (which God knows what is)
-	j FIM
+	
+	
+	# mexendo o player
+CHECK:	
+	jal ECHO # ve se alguma tecla foi teclada
+	jal MS # move tiros
+	move $s5, $t2 # salva a tecla em $s5
+	move $a0, $s6 # salva onde o player esta em $a0
+	beq $s5, maskA, ESQUERDA
+	beq $s5, maskD, DIREITA
+	beq $s5, maskSPACE, SHOOT
+	j CHECK
+	
 ############################################## FUNCTIONS #########################################################
 #facilitando a chamada do sleep. $a0 deve conter o delay em milissegundos
 SLEEP:	li $v0, 32
@@ -206,21 +219,181 @@ FECHA: 	# colocar em $a0 o file descriptor
 	jr $ra
 	
 ### mostrar o sprite do player
-MPLAYA:	move $t4, $sp # guarda o endereço da stack em t4
+MPLAYA:	move $a0, $s6 # salva address em $a0 para poder mexer 
+	move $t4, $sp # guarda o endereço da stack em t4
 	li $t6, 8 # sao 8 linhas
 	li $t7, 5 #sao 5 words por linha do player
 P:	lw $t8, 0($t4) # carrega primeiro word do sprite player
-	sw $t8, 0($s6)
+	sw $t8, 0($a0)
 	addi $t4, $t4, 4 # proximo word do player
-	addi $s6, $s6, 4 # proximo address para mostrar na tela
+	addi $a0, $a0, 4 # proximo address para mostrar na tela
 	addi $t7, $t7, -1 # diminui uma word
 	bne $t7, $zero, P
 	
-	addi $s6, $s6, 300 # frist address, next line
+	addi $a0, $a0, 300 # frist address, next line
 	addi $t6, $t6, -1
 	li $t7, 5
 	bne $t6, $zero, P
 	jr $ra
+	
+### mostrar todos os inimigos na tela
+MENEMY:	move $a0, $s0
+	li $a1, 0xFF000000 # first VGA address
+	li $a2, 38400 # bytes para leitura
+	li $v0,14
+	syscall
+	jr $ra
+	
+### checando se alguma tecla foi apertada, e qual tecla foi essa
+ECHO:	la $t1,0xFF100000
+	lw $t0,0($t1)
+	andi $t0,$t0,0x0001		# Le bit de Controle Teclado
+   	beq $t0,$zero,NOKEY  	   	# Se não há tecla pressionada PULA
+  	lw $t2,4($t1) # a tecla que foi apertada
+  	jr $ra # return para a main fazer o control check
+ NOKEY: li $t2, 0
+ 	jr $ra 	
+### mexendo player para a esquerda
+ESQUERDA:li $t0, 0x00000000 # preto
+	addi $s6, $s6, 16 # ultima word do player em uma linha
+	sw $t0, 0($s6) # repetetira 8 vezes - 1
+	addi $s6, $s6, 320 # mesmo address, uma linha abaixo (nao tem problema por que uma copia do original esta em $a0 e este ($s6)sera atualizado
+	sw $t0, 0($s6) # 2
+	addi $s6, $s6, 320
+	sw $t0, 0($s6) # 3
+	addi $s6, $s6, 320
+	sw $t0, 0($s6) # 4
+	addi $s6, $s6, 320
+	sw $t0, 0($s6) # 5
+	addi $s6, $s6, 320
+	sw $t0, 0($s6) # 6
+	addi $s6, $s6, 320
+	sw $t0, 0($s6) # 7
+	addi $s6, $s6, 320
+	sw $t0, 0($s6) # 8
+	addi $s6, $s6, 320
+	
+	
+	addi $a0, $a0, -4 # volta o player 4 bits
+	move $s6, $a0 # salva novo address do player
+	move $t4, $sp # guarda o endereço da stack em t4
+	li $t6, 8 # sao 8 linhas
+	li $t7, 5 #sao 5 words por linha do player
+E:	lw $t8, 0($t4) # carrega primeiro word do sprite player
+	sw $t8, 0($a0)
+	addi $t4, $t4, 4 # proximo word do player
+	addi $a0, $a0, 4 # proximo address para mostrar na tela
+	addi $t7, $t7, -1 # diminui uma word
+	bne $t7, $zero, E
+	
+	addi $a0, $a0, 300 # frist address, next line
+	addi $t6, $t6, -1
+	li $t7, 5
+	bne $t6, $zero, E
+	j CHECK
+	
+### mexendo player para a direita
+DIREITA:#antes de voltar, apaga a parte que vai mexer
+	li $t0, 0x00000000 # preto
+	sw $t0, 0($s6) # repetetira 8 vezes - 1
+	addi $s6, $s6, 320 # mesmo address, uma linha abaixo (nao tem problema por que uma copia do original esta em $a0 e este ($s6)sera atualizado
+	sw $t0, 0($s6) # 2
+	addi $s6, $s6, 320
+	sw $t0, 0($s6) # 3
+	addi $s6, $s6, 320
+	sw $t0, 0($s6) # 4
+	addi $s6, $s6, 320
+	sw $t0, 0($s6) # 5
+	addi $s6, $s6, 320
+	sw $t0, 0($s6) # 6
+	addi $s6, $s6, 320
+	sw $t0, 0($s6) # 7
+	addi $s6, $s6, 320
+	sw $t0, 0($s6) # 8
+	addi $s6, $s6, 320
+
+
+	addi $a0, $a0, 4 # volta o player 4 bits
+	move $s6, $a0 # salva novo address do player
+	move $t4, $sp # guarda o endereço da stack em t4
+	li $t6, 8 # sao 8 linhas
+	li $t7, 5 #sao 5 words por linha do player
+D:	lw $t8, 0($t4) # carrega primeiro word do sprite player
+	sw $t8, 0($a0)
+	addi $t4, $t4, 4 # proximo word do player
+	addi $a0, $a0, 4 # proximo address para mostrar na tela
+	addi $t7, $t7, -1 # diminui uma word
+	bne $t7, $zero, D
+	
+	addi $a0, $a0, 300 # frist address, next line
+	addi $t6, $t6, -1
+	li $t7, 5
+	bne $t6, $zero, D
+	j CHECK
+	
+### tiro do player
+SHOOT:	la $t0, PSHOT
+	li $t3, 10 # numero max de tiros
+TFIRE:	lw $t1, 0($t0)
+	beq $t1, $0, NEWFIRE # se um novo tiro puder ser alocado, faz isso
+	addi $t0, $t0, 4 # checa se o prox tiro esta disponivel
+	addi $t3, $t3, -1 # evita um loop infinito
+	bne $t3, $0, TFIRE
+	j CHECK # se chegar aqui, nao ha tiros disponiveis
+	
+NEWFIRE: 	# novo tiro
+	addi $a0, $a0, 8
+	# $a0 tem a position do tiro; $t0 tem o address do vetor para salvar
+	li $t7, 0xFFFFFFFF #branco
+	li $t6, 4
+	addi $a0, $a0, -320
+NB:	lw $t9, 0($a0)
+	la $gp, NF
+	bne $t9, maskBLACK, COLORTEST
+NF:	sw $t7, 0($a0)
+	addi $a0, $a0, -320
+	addi $t6, $t6, -1
+	bne $t6, $0, NB
+	sw $a0, 0($t0)
+	j CHECK
+	
+### Movendo os tiros
+MS:	la $t0, PSHOT
+	li $t3, 10
+FC:	lw $t1, 0($t0)
+	bne $t1, $0, ANDA
+AR:	addi $t0, $t0, 4
+	addi $t3, $t3, -1
+	bne $t3, $0, FC
+	jr $ra #acabou retorna
+	
+ANDA:	move $t9, $t1 # salva position do tiro
+	li $t8, 0x00000000 # preto
+	sw $t8, 0($t9) # pinta lugar em que o tiro esta de preto. as 4 positions - 1
+	addi $t9, $t9, 320
+	sw $t8, 0($t9) # 2
+	addi $t9, $t9, 320
+	sw $t8, 0($t9) # 3
+	addi $t9, $t9, 320
+	sw $t8, 0($t9) # 4
+	addi $t9, $t9, 320
+	sw $t8, 0($t9) # 4
+	# ve se o tira nao acerta nada e desenha novo tiro
+	li $t7, 0xFFFFFFFF #branco
+	li $t6, 4
+	addi $t1, $t1, -320
+B:	lw $t9, 0($t1)
+	la, $fp, F
+	bne $t9, maskBLACK, COLORTEST
+F:	sw $t7, 0($t1)
+	addi $t1, $t1, -320
+	addi $t6, $t6, -1
+	bne $t6, $0, B
+	sw $t1, 0($t0) #atualiza o vetor de tiros
+	j AR
+	
+### checa se acertou alguma coisa
+COLORTEST: jr $fp
 ### Finaliza o programa		
 FIM:	li $v0,10
 	syscall
