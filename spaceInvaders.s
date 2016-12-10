@@ -20,11 +20,15 @@ LIT:	.asciiz "enter.bin"
 LVL: 	.asciiz "lvl.bin"
 SPRITE:	.asciiz "sprites.bin"
 INIMIGO: .asciiz "inimigo.bin"
-ENEMY:	.word 0xFF000F0A, 0xFF000F33, 0xFF000F5B, 0xFF000F83, 0xFF000FAB, 0xFF000FD3, 0xFF000FFB, 0xFF001023, 0xff00320a, 0xff003233,
-		0xff00325b, 0xff003283, 0xff0032ab, 0xff0032d3, 0xff0032fb, 0xff003323, 0xff00550A, 0xff005533, 0xff00555b, 0xff005583, 0xff0055ab,
-		0xff0055d3, 0xff0055fb, 0xff005623, 0xff00780a, 0xff007833, 0xff00785b, 0xff007883, 0xff0078ab, 0xff0078d3, 0xff0078fb, 0xff007923
+
+DEBUG: .asciiz "moveu 1\n"
+DEB: .asciiz "pausa agr\n"
+
+#ENEMY:	.word 0xFF000F0A, 0xFF000F33, 0xFF000F5B, 0xFF000F83, 0xFF000FAB, 0xFF000FD3, 0xFF000FFB, 0xFF001023, 0xff00320a, 0xff003233,
+#		0xff00325b, 0xff003283, 0xff0032ab, 0xff0032d3, 0xff0032fb, 0xff003323, 0xff00550A, 0xff005533, 0xff00555b, 0xff005583, 0xff0055ab,
+#		0xff0055d3, 0xff0055fb, 0xff005623, 0xff00780a, 0xff007833, 0xff00785b, 0xff007883, 0xff0078ab, 0xff0078d3, 0xff0078fb, 0xff007923
 PSHOT:	.word 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-INI: .word 0xFF000F06, 32
+INI: .word 0xFF000F04, 32
 
 
 .text
@@ -154,27 +158,9 @@ ABERTURA: 	la $a0, LVL
 	addi $s6, $zero, 0xFF000000 # primeiro address da memoria VGA
 	addi $s6, $s6, 64792 # primeiro address do player na tela
 	
-	la $s1, ENEMY # salva o address do vetor de inimigos em $s1
-	li $t0, 3846
-	addi $t0, $t0, 0xFF000000 # VGA address do primeiro inimigo
-	li $t3, 8 # numero de inimigos por linha
-	li $t2, 4 # linhas de inimigos
-LINHA:	beq $t2, $zero, SAI # se encher todas as linhas, sai
-	li $t1, 0 # vai incrementar em cada linha até virar 8
-	
-COLUNA: beq $t1, $t3, ADJUST #sai quando completar uma linha
-	sw $t0, 0($s1) # salva endereço do inimigo
-	addi $t0, $t0, 40 # address do proximo inimigo na linha
-	addi $s1, $s1, 4 # proximo inteiro de enemy 
-	addi $t1, $t1, 1 # incrementa contador
-	j COLUNA
-	
-ADJUST: addi $t0, $t0, 20 # prepara pra proxima linha
-	addi $t2, $t2, -1
-	j LINHA
 
 	# mostrar player e inimigos na tela
-SAI:	jal MPLAYA #mostra player
+	jal MPLAYA #mostra player
 	
 	# abre arquivo com os sprites dos inimigos
 	la $a0, INIMIGO
@@ -186,8 +172,37 @@ SAI:	jal MPLAYA #mostra player
 	move $a0, $s0
 	jal FECHA
 	
+	# setting flags dos inimigos
+	la $s1, INI # salva o address do vetor INI em $s1
+	lw $t0, 0($s1) # address do inimigo 1
+	li $t4, flagENEMY
+	li $t3, 8 # numero de inimigos por linha
+	li $t2, 4 # linhas de inimigos
+LINHA:	beq $t2, $zero, SAI # se encher todas as linhas, sai
+	li $t1, 0 # vai incrementar em cada linha até virar 8
 	
+COLUNA: beq $t1, $t3, ADJUST #sai quando completar uma linha
+	sw $t4, 0($t0) # salva flag pro prox inimigo
+	addi $t0, $t0, 40 # address do proximo inimigo na linha
+	addi $t1, $t1, 1 # incrementa contador
+	j COLUNA
+	
+ADJUST: addi $t0, $t0, 8688 # prepara pra proxima linha
+	addi $t2, $t2, -1
+	j LINHA
+
+SAI:
+	li $a0, 1000
+	jal SLEEP
 	# mexendo o player
+	#################################################################### AGORA A COISA RODA ####################
+	
+	#debug urposes
+	la $a0, DEBUG
+	li $v0, 4
+	syscall
+	
+	
 CHECK:	
 	jal ECHO # ve se alguma tecla foi teclada
 	jal MS # move tiros
@@ -196,10 +211,12 @@ CHECK:
 	beq $s5, maskA, ESQUERDA
 	beq $s5, maskD, DIREITA
 	beq $s5, maskSPACE, SHOOT
-	li $a0, 500	# pausa rapida
+	li $a0, 100	# pausa rapida
 	jal SLEEP
-	j CHECK
+	j FOE
 	
+FOE:	jal MOVE_LINHA_ESQUERDA
+	j FIM
 ############################################## FUNCTIONS #########################################################
 #facilitando a chamada do sleep. $a0 deve conter o delay em milissegundos
 SLEEP:	li $v0, 32
@@ -486,6 +503,79 @@ LEFT: 	addi $v0, $v0, 24
 RIGHT: 	addi $v0, $v0, 12
 	addi $v0, $v0, 1920
 	j BIP
+	
+### mexendo os inimigos
+MOVE_LINHA_ESQUERDA: 	la $t0, INI # abre info dos inimigos
+		lw $t1, 0($t0) # abre address do enemy 1
+		move $fp, $sp # achando o design correto
+		addi $fp, $fp, 160 # design inimigo da linha de cima
+		li $t3, 8 # inimigos por linha
+		li $t4, 4 # linhas
+A:		lw $t2, 0($t1) # abre flag do enemy 1
+		
+		#debug urposes
+		la $a0, DEBUG
+		li $v0, 4
+		syscall
+	
+		bne $t2, $0, MOVEMOVE
+BIRL:		addi $t1, $t1, 40
+		addi $t3, $t3, -1
+		bne $t3, $0, A
+		
+		li $t3, 8
+		addi $fp, $fp, 180
+		addi $t4, $t4, -1
+		addi $t1, $t1, 8688
+		bne $t4, $0, A
+		
+		#atualiza address em INI
+		lw $t1, 0($t0)
+		addi $t1, $t1, 12
+		sw $t1, 0($t0)
+		jr $ra
+		
+MOVEMOVE:	
+	# primeiro pinta de preto onde o bichinho estava
+	move $t5, $t1 #  salva address do bicho em $t5
+	li $t6, 5 # words por linha
+	li $t7, 9 # linhas
+Q:	sw $0, 0($t5)		# apaga
+	addi $t5, $t5, 4
+	addi $t6, $t6, -1
+	bne $t6, $0, Q
+	
+	li $t6, 5
+	addi $t7, $t7, -1
+	addi $t5, $t5, 300
+	bne $t7, $0, Q
+	
+	# agora vamos criar novamente o garoto
+	move $t5, $t1 # salva adress de novo
+	addi $t5, $t5, 12 # novo address, 3 words pra frente
+	li $t6, 5 # words por linha
+	li $t7, 9 # linhas
+Z:	lw $t8, 0($fp)
+	sw $t8, 0($t5)
+	addi $fp, $fp, 4
+	addi $t5, $t5, 4
+	addi $t6, $t6, -1
+	bne $t6, $0, Z
+	
+	li $t6, 5
+	addi $t7, $t7, -1
+	addi $t5, $t5, 300
+	bne $t7, $0, Z
+	
+	# volta o $fp 
+	addi $fp, $fp, -180
+	move $t5, $t1
+	# e setar a flag dele
+	addi $t5, $t5, 8
+	li $t8, flagENEMY
+	sw $t8, 0($t5)
+	
+	j BIRL
 ### Finaliza o programa		
 FIM:	li $v0,10
 	syscall
