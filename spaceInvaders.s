@@ -5,6 +5,14 @@
 .eqv maskA 97
 .eqv maskSPACE 32
 .eqv maskBLACK 0x00000000
+.eqv shLimit 0xff000140
+.eqv maskENEMY1 0xFBFBFBFB
+.eqv maskENEMY2 0x000000FB
+.eqv maskENEMY3 0xFB000000
+.eqv maskENEMY4 0x00FB0000
+.eqv maskENEMY5 0x0000FB00
+.eqv flagENEMY 0x01010101
+
 
 .data 
 FILE: 	.asciiz "space_open.bin"
@@ -16,6 +24,9 @@ ENEMY:	.word 0xFF000F0A, 0xFF000F33, 0xFF000F5B, 0xFF000F83, 0xFF000FAB, 0xFF000
 		0xff00325b, 0xff003283, 0xff0032ab, 0xff0032d3, 0xff0032fb, 0xff003323, 0xff00550A, 0xff005533, 0xff00555b, 0xff005583, 0xff0055ab,
 		0xff0055d3, 0xff0055fb, 0xff005623, 0xff00780a, 0xff007833, 0xff00785b, 0xff007883, 0xff0078ab, 0xff0078d3, 0xff0078fb, 0xff007923
 PSHOT:	.word 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+INI: .word 0xFF000F06, 32
+
+
 .text
 ########### ABRE A TELA DE INICIO #################
 # Preenche a tela de preto	#aberto a modificações e melhorias. Ex: musica de entrada... frase de impacto
@@ -118,10 +129,7 @@ ABERTURA: 	la $a0, LVL
 	# fechando arquivo do background
 	move $a0, $s0
 	jal FECHA
-	
-	# consistency check				# remover depois
-	li $a0, 2000
-	jal SLEEP
+
 ### salvando o design dos inimigos pra stack
 	# abre space na stack
 	addi $sp, $sp, -880
@@ -188,6 +196,8 @@ CHECK:
 	beq $s5, maskA, ESQUERDA
 	beq $s5, maskD, DIREITA
 	beq $s5, maskSPACE, SHOOT
+	li $a0, 500	# pausa rapida
+	jal SLEEP
 	j CHECK
 	
 ############################################## FUNCTIONS #########################################################
@@ -343,12 +353,13 @@ TFIRE:	lw $t1, 0($t0)
 	
 NEWFIRE: 	# novo tiro
 	addi $a0, $a0, 8
+	move $v0, $a0
 	# $a0 tem a position do tiro; $t0 tem o address do vetor para salvar
 	li $t7, 0xFFFFFFFF #branco
 	li $t6, 4
 	addi $a0, $a0, -320
 NB:	lw $t9, 0($a0)
-	la $gp, NF
+	la $v1, NF
 	bne $t9, maskBLACK, COLORTEST
 NF:	sw $t7, 0($a0)
 	addi $a0, $a0, -320
@@ -379,21 +390,102 @@ ANDA:	move $t9, $t1 # salva position do tiro
 	addi $t9, $t9, 320
 	sw $t8, 0($t9) # 4
 	# ve se o tira nao acerta nada e desenha novo tiro
+	
 	li $t7, 0xFFFFFFFF #branco
 	li $t6, 4
-	addi $t1, $t1, -320
+	addi $t1, $t1, -320 # tiro sobe
 B:	lw $t9, 0($t1)
-	la, $fp, F
+	la, $v1, F
+	move $v0, $t1
 	bne $t9, maskBLACK, COLORTEST
 F:	sw $t7, 0($t1)
 	addi $t1, $t1, -320
 	addi $t6, $t6, -1
 	bne $t6, $0, B
+	li $t5, shLimit
+	slt $t4, $t1, $t5
+	bne $t4, $0, FIMTIRO
 	sw $t1, 0($t0) #atualiza o vetor de tiros
 	j AR
-	
+
+FIMTIRO:move $t9, $t1 # salva position do tiro
+	li $t8, 0x00000000 # preto
+	sw $t8, 0($t9) # pinta lugar em que o tiro esta de preto. as 4 positions - 1
+	addi $t9, $t9, 320
+	sw $t8, 0($t9) # 2
+	addi $t9, $t9, 320
+	sw $t8, 0($t9) # 3
+	addi $t9, $t9, 320
+	sw $t8, 0($t9) # 4
+	addi $t9, $t9, 320
+	sw $t8, 0($t9) # 4
+	sw $0 ($t0) # termina o tiro. abre space pra outro
+	jr $ra
 ### checa se acertou alguma coisa
-COLORTEST: jr $fp
+COLORTEST: 
+	# $t9 holds the color of whatever the shot hit # $v0 contem o address do inimigo atingido 
+	# $t0 tem o address do tiro no vetor PSHOT
+	move $s0, $t9
+	andi $s0, maskENEMY1
+	beq $s0, maskENEMY1, DHIT
+	
+	move $s0, $t9
+	andi $s0, maskENEMY2
+	beq $s0, maskENEMY2, LEFT
+	
+	move $s0, $t9
+	andi $s0, maskENEMY3
+	beq $s0, maskENEMY3, RIGHT
+	
+	move $s0, $t9
+	andi $s0, maskENEMY4
+	beq $s0, maskENEMY4, DHIT
+	
+	move $s0, $t9
+	andi $s0, maskENEMY5
+	beq $s0, maskENEMY5, DHIT
+
+	# apagar o tiro
+ERRTIR:	sw $0, 0($t0) # abre space no PSHOT
+C:	sw $0, 0($t1) # apaga o tiro na grid
+	addi $t6, $t6, 1
+	addi $t1, $t1, 320
+	bne $t6, 5, C
+
+	j AR
+	
+BIP:	la $a1, INI # vetor com inimigo
+	lw $a2, 4($a1) # inimigos ativos
+	addi $a2, $a2, -1 # deduz inimigo atingido
+	sw $a2, 4($a1) # atualiza no vetor
+	# apagando o inimigo ... com margem de erro
+	li $a1, 0x00000000
+	li $a2, 10
+	li $a3, 18
+
+R:	sw $a1, 0($v0)
+	addi $v0, $v0, -4
+	addi $a2, $a2, -1
+	bne $a2, $0, R
+	
+	li $a2, 10
+	addi $a3, $a3, -1
+	addi $v0, $v0, -280
+	bne $a3, $0, R
+	
+	j ERRTIR
+	
+DHIT:	addi $v0, $v0, 20
+	addi $v0, $v0, 1920
+	j BIP
+	
+LEFT: 	addi $v0, $v0, 24
+	addi $v0, $v0, 1920
+	j BIP
+	
+RIGHT: 	addi $v0, $v0, 12
+	addi $v0, $v0, 1920
+	j BIP
 ### Finaliza o programa		
 FIM:	li $v0,10
 	syscall
