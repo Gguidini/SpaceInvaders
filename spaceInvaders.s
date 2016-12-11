@@ -215,7 +215,9 @@ CHECK:
 	jal SLEEP
 	j FOE
 	
-FOE:	jal MOVE_LINHA_ESQUERDA
+FOE:	jal MOVE_LINHA_DIREITA
+	jal MOVE_BAIXO
+	jal MOVE_LINHA_ESQUERDA
 	j FIM
 ############################################## FUNCTIONS #########################################################
 #facilitando a chamada do sleep. $a0 deve conter o delay em milissegundos
@@ -504,8 +506,8 @@ RIGHT: 	addi $v0, $v0, 12
 	addi $v0, $v0, 1920
 	j BIP
 	
-### mexendo os inimigos
-MOVE_LINHA_ESQUERDA: 	la $t0, INI # abre info dos inimigos
+### mexendo os inimigos - para a direita
+MOVE_LINHA_DIREITA: 	la $t0, INI # abre info dos inimigos
 		lw $t1, 0($t0) # abre address do enemy 1
 		move $fp, $sp # achando o design correto
 		addi $fp, $fp, 160 # design inimigo da linha de cima
@@ -528,7 +530,7 @@ BIRL:		addi $t1, $t1, 40
 		
 		#atualiza address em INI
 		lw $t1, 0($t0)
-		addi $t1, $t1, 12
+		addi $t1, $t1, 8
 		sw $t1, 0($t0)
 		jr $ra
 		
@@ -574,6 +576,151 @@ Z:	lw $t8, 0($fp)
 	
 	
 	j BIRL
+	
+## mecendo os inimigos - uma vez para a esquerda
+# ESSE vai do ultimo inimigo voltando ate o primeiro
+MOVE_LINHA_ESQUERDA: 	la $t0, INI # abre info dos inimigos
+		lw $t1, 0($t0) # abre address do enemy 1
+		addi $t1, $t1, 27160 # address do ultimo inimigo
+		move $fp, $sp # achando o design correto
+		addi $fp, $fp, 700 # design inimigo da linha de baixo
+		li $t3, 8 # inimigos por linha
+		li $t4, 4 # linhas
+K:		lw $t2, 0($t1) # abre flag do enemy 1
+		
+		
+	
+		bne $t2, $0, MOVEESQ
+KARA:		addi $t1, $t1, -40
+		addi $t3, $t3, -1
+		bne $t3, $0, K
+		
+		li $t3, 8
+		addi $fp, $fp, -180
+		addi $t4, $t4, -1
+		addi $t1, $t1, -8640	
+		bne $t4, $0, K
+		
+		#atualiza address em INI
+		lw $t1, 0($t0)
+		addi $t1, $t1, -16
+		sw $t1, 0($t0)
+		jr $ra
+		
+MOVEESQ:	
+	# primeiro pinta de preto onde o bichinho estava
+	move $t5, $t1 #  salva address do bicho em $t5
+	li $t6, 5 # words por linha
+	li $t7, 10 # linhas
+O:	sw $0, 0($t5)		# apaga
+	addi $t5, $t5, 4
+	addi $t6, $t6, -1
+	bne $t6, $0, O
+	
+	li $t6, 5
+	addi $t7, $t7, -1
+	addi $t5, $t5, 300
+	bne $t7, $0, O
+	
+	# agora vamos criar novamente o garoto
+	move $t5, $t1 # salva adress de novo
+	addi $t5, $t5, -12 # novo address, 3 words pra tras
+	li $t6, 5 # words por linha
+	li $t7, 9 # linhas
+V:	lw $t8, 0($fp)
+	sw $t8, 0($t5)
+	addi $fp, $fp, 4
+	addi $t5, $t5, 4
+	addi $t6, $t6, -1
+	bne $t6, $0, V
+	
+	li $t6, 5
+	addi $t7, $t7, -1
+	addi $t5, $t5, 300
+	bne $t7, $0, V
+	
+	# volta o $fp 
+	addi $fp, $fp, -180
+	move $t5, $t1
+	# e setar a flag dele
+	addi $t5, $t5, -16
+	li $t8, flagENEMY
+	sw $t8, 0($t5)
+	
+	
+	j KARA
+	
+### mexendo os inimigos - para baixo
+MOVE_BAIXO: 	la $t0, INI # abre info dos inimigos
+		lw $t1, 0($t0) # abre address do enemy 1
+		move $fp, $sp # achando o design correto
+		addi $fp, $fp, 160 # design inimigo da linha de cima
+		li $t3, 8 # inimigos por linha
+		li $t4, 4 # linhas
+L:		lw $t2, 0($t1) # abre flag do enemy 1
+		
+		
+	
+		bne $t2, $0, MOVEDOWN
+BARRY:		addi $t1, $t1, 40
+		addi $t3, $t3, -1
+		bne $t3, $0, L
+		
+		li $t3, 8
+		addi $fp, $fp, 180
+		addi $t4, $t4, -1
+		addi $t1, $t1, 8640
+		bne $t4, $0, L
+		
+		#atualiza address em INI
+		lw $t1, 0($t0)
+		addi $t1, $t1, 3200
+		sw $t1, 0($t0)
+		jr $ra
+		
+MOVEDOWN:	
+	# primeiro pinta de preto onde o bichinho estava
+	move $t5, $t1 #  salva address do bicho em $t5
+	li $t6, 5 # words por linha
+	li $t7, 10 # linhas
+I:	sw $0, 0($t5)		# apaga
+	addi $t5, $t5, 4
+	addi $t6, $t6, -1
+	bne $t6, $0, I
+	
+	li $t6, 5
+	addi $t7, $t7, -1
+	addi $t5, $t5, 300
+	bne $t7, $0, I
+	
+	# agora vamos criar novamente o garoto
+	move $t5, $t1 # salva adress de novo
+	addi $t5, $t5, 3200 # novo address, 3 words pra frente
+	li $t6, 5 # words por linha
+	li $t7, 9 # linhas
+J:	lw $t8, 0($fp)
+	sw $t8, 0($t5)
+	addi $fp, $fp, 4
+	addi $t5, $t5, 4
+	addi $t6, $t6, -1
+	bne $t6, $0, J
+	
+	li $t6, 5
+	addi $t7, $t7, -1
+	addi $t5, $t5, 300
+	bne $t7, $0, J
+	
+	# volta o $fp 
+	addi $fp, $fp, -180
+	move $t5, $t1
+	# e setar a flag dele
+	addi $t5, $t5, 3200
+	li $t8, flagENEMY
+	sw $t8, 0($t5)
+	
+	
+	j BARRY
+	
 ### Finaliza o programa		
 FIM:	li $v0,10
 	syscall
