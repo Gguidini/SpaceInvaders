@@ -187,7 +187,7 @@ COLUNA: beq $t1, $t3, ADJUST #sai quando completar uma linha
 	addi $t1, $t1, 1 # incrementa contador
 	j COLUNA
 	
-ADJUST: addi $t0, $t0, 8688 # prepara pra proxima linha
+ADJUST: addi $t0, $t0, 8640 # prepara pra proxima linha
 	addi $t2, $t2, -1
 	j LINHA
 
@@ -513,10 +513,7 @@ MOVE_LINHA_ESQUERDA: 	la $t0, INI # abre info dos inimigos
 		li $t4, 4 # linhas
 A:		lw $t2, 0($t1) # abre flag do enemy 1
 		
-		#debug urposes
-		la $a0, DEBUG
-		li $v0, 4
-		syscall
+		
 	
 		bne $t2, $0, MOVEMOVE
 BIRL:		addi $t1, $t1, 40
@@ -526,7 +523,7 @@ BIRL:		addi $t1, $t1, 40
 		li $t3, 8
 		addi $fp, $fp, 180
 		addi $t4, $t4, -1
-		addi $t1, $t1, 8688
+		addi $t1, $t1, 8640
 		bne $t4, $0, A
 		
 		#atualiza address em INI
@@ -539,7 +536,7 @@ MOVEMOVE:
 	# primeiro pinta de preto onde o bichinho estava
 	move $t5, $t1 #  salva address do bicho em $t5
 	li $t6, 5 # words por linha
-	li $t7, 9 # linhas
+	li $t7, 10 # linhas
 Q:	sw $0, 0($t5)		# apaga
 	addi $t5, $t5, 4
 	addi $t6, $t6, -1
@@ -574,6 +571,7 @@ Z:	lw $t8, 0($fp)
 	addi $t5, $t5, 8
 	li $t8, flagENEMY
 	sw $t8, 0($t5)
+	
 	
 	j BIRL
 ### Finaliza o programa		
