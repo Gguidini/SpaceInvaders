@@ -29,6 +29,8 @@ LVL: 	.asciiz "lvl.bin"
 SPRITE:	.asciiz "sprites.bin"
 INIMIGO: .asciiz "inimigo.bin"
 GAMEOVER: .asciiz "gameover.bin"
+VIDA1: .asciiz "lives1.bin"
+VIDA2: .asciiz "lives2.bin"
 
 ESHOT: .word 0, 0, 0, 0, 0
 PSHOT:	.word 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
@@ -140,8 +142,49 @@ ABERTURA: 	la $a0, LVL
 	move $a0, $s0
 	jal FECHA
 
+	la $a0, LIVES
+	lw $t0, 0($a0)
+	beq $t0, 1, LIV1
+	beq $t0, 2, LIV2
+	j LIV3
+	
+LIV1:	la $a0, VIDA1
+	jal ABRE
+	move $s0, $v0
+	
+	li $t0, 12
+REP:	la $a1,0xff011e14
+	li $a2,42
+	li $v0,14
+	syscall
+	
+	addi $t0, $t0, -1
+	addi $a1, $a1, 320
+	bne $t0, $0, REP
+	
+	move $a0, $s0
+	jal FECHA
+	j LIV3
+	
+LIV2:	la $a0, VIDA2
+	jal ABRE
+	move $s0, $v0
+	
+	li $t0, 12
+REP2:	la $a1,0xff011e14
+	li $a2,42
+	li $v0,14
+	syscall
+	
+	addi $t0, $t0, -1
+	addi $a1, $a1, 320
+	bne $t0, $0, REP2
+	
+	move $a0, $s0
+	jal FECHA
+	j LIV3
 ### salvando o design dos inimigos pra stack
-	# abre space na stack
+LIV3:	# abre space na stack
 	addi $sp, $sp, -880
 	
 	# abre o arquivo com os sprites
@@ -537,6 +580,7 @@ C:	sw $0, 0($t1) # apaga o tiro na grid
 BIP:	la $a1, INI # vetor com inimigo
 	lw $a2, 4($a1) # inimigos ativos
 	addi $a2, $a2, -1 # deduz inimigo atingido
+	beq $a2, $0, ABERTURA
 	sw $a2, 4($a1) # atualiza no vetor
 	# apagando o inimigo ... com margem de erro
 	li $a1, 0x00000000
@@ -996,12 +1040,12 @@ BARRIER: j BIPE
 PLAYA: 	la $t0, LIVES
 	lw $t1, 0($t0)
 	addi $t1, $t1, -1
-	beq $t1, $0, GAMEOVER
+	beq $t1, $0, GAME_OVER
 	sw $t1, 0($t0)
 	j ABERTURA
 	
 ### Finaliza o programa		
-GAMEOVER:	la $a0, GAMEOVER
+GAME_OVER:	la $a0, GAMEOVER
 		jal ABRE
 		move $a0, $s0
 		
