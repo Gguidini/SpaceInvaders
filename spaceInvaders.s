@@ -165,19 +165,13 @@ LIV1:	# reabrindo o enter
 	
 	#lendo linha por linha
 	move $t7, $v0	#salva o file descriptor em $t7
-	addi $t1, $zero, 12 # numero de linhas
-		
-FILLV:	beq $t1, $zero, DONEV #vai pra DONE quando todas as linhas forem lidas
-	move $a0,$t7
-	li $a1, 0xff011e10	
-	li $a2, 44
+	move $a0, $t7
+	li $a1, 0xff011D00	
+	li $a2, 3840
 	li $v0,14 # syscall de ler do arquivo
 	syscall
-	addi $t1, $t1, -1 # prox linha
-	addi $s2, $s2, 320 # primeiro address da prox linha
-	j FILLV
-	
-DONEV:	#fecha o arquivo
+
+	#fecha o arquivo
 	move $a0,$t7
 	li $v0,16
 	syscall				
@@ -187,15 +181,11 @@ LIV2:	la $a0, VIDA2
 	jal ABRE
 	move $s0, $v0
 	
-	li $t0, 12
-REP2:	li $a1,0xff011e10
-	li $a2,44
-	li $v0,14
+	move $a0, $s0
+	li $a1, 0xff011D00	
+	li $a2, 3840
+	li $v0,14 # syscall de ler do arquivo
 	syscall
-	
-	addi $t0, $t0, -1
-	addi $a1, $a1, 320
-	bne $t0, $0, REP2
 	
 	move $a0, $s0
 	jal FECHA
