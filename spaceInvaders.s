@@ -317,10 +317,10 @@ EFIREBACK:
 	li $a0, 50
 	jal SLEEP
 	# o andamento dos inimigos eh controlado por um ciclo. Eles andam a cada 5 movimentaçoes do player. 
-	beq $s7, 0, M0
-	beq $s7, 10, M1
-	beq $s7, 20, M2
-	beq $s7, 30, M3
+	beq $s7, 20, M0
+	beq $s7, 40, M1
+	beq $s7, 60, M2
+	beq $s7, 80, M3
 	addi $s7, $s7, 1
 	
 	jal MES
@@ -1079,9 +1079,9 @@ PLAYA: 	la $t0, LIVES
 ### Finaliza o programa		
 GAME_OVER:	la $a0, GAMEOVER
 		jal ABRE
-		move $a0, $s0
+		move $s0, $v0
 		
-	
+		move $a0, $s0
 		la $a1,0xFF000000
 		li $a2,76800
 		li $v0,14
