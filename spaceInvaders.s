@@ -13,6 +13,14 @@
 .eqv maskENEMY5 0x0000FB00
 .eqv flagENEMY 0x01010101
 
+.eqv maskPLAYA1 0x4f4f4f4f
+.eqv maskPLAYA2 0x0000004f
+.eqv maskPLAYA3 0x4f000000
+.eqv maskPLAYA4 0x004f0000
+.eqv maskPLAYA5 0x00004f00
+
+.eqv maskBARRIER1 0x37000000
+.eqv maskBARRIER2 0x00000037
 
 .data 
 FILE: 	.asciiz "space_open.bin"
@@ -20,17 +28,14 @@ LIT:	.asciiz "enter.bin"
 LVL: 	.asciiz "lvl.bin"
 SPRITE:	.asciiz "sprites.bin"
 INIMIGO: .asciiz "inimigo.bin"
+GAMEOVER: .asciiz "gameover.bin"
 
-DEBUG: .asciiz "moveu 1\n"
-DEB: .asciiz "pausa agr\n"
-
-#ENEMY:	.word 0xFF000F0A, 0xFF000F33, 0xFF000F5B, 0xFF000F83, 0xFF000FAB, 0xFF000FD3, 0xFF000FFB, 0xFF001023, 0xff00320a, 0xff003233,
-#		0xff00325b, 0xff003283, 0xff0032ab, 0xff0032d3, 0xff0032fb, 0xff003323, 0xff00550A, 0xff005533, 0xff00555b, 0xff005583, 0xff0055ab,
-#		0xff0055d3, 0xff0055fb, 0xff005623, 0xff00780a, 0xff007833, 0xff00785b, 0xff007883, 0xff0078ab, 0xff0078d3, 0xff0078fb, 0xff007923
+ESHOT: .word 0, 0, 0, 0, 0
 PSHOT:	.word 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 INI: .word 0xFF000F04, 32
 
-
+LIVES: .word 3
+SCORE: .word 0
 .text
 ########### ABRE A TELA DE INICIO #################
 # Preenche a tela de preto	#aberto a modificações e melhorias. Ex: musica de entrada... frase de impacto
@@ -62,6 +67,7 @@ FORA:
 	move $a0,$s1
 	li $v0,16
 	syscall
+	
 ########### PISCA O ENTER E AGUARDA TECLA PARA INICIO ##############
 # fazendo o ENTER piscar
 TEC:	jal ECHO2	# pula pra ver checar o teclado
@@ -172,6 +178,11 @@ ABERTURA: 	la $a0, LVL
 	move $a0, $s0
 	jal FECHA
 	
+	la $s1, INI		#inicializa inimigos na posiçao correta
+	li $t0, 0xFF000F04
+	li $t1, 32
+	sw $t0, 0($s1)
+	sw $t1, 4($s1)
 	# setting flags dos inimigos
 	la $s1, INI # salva o address do vetor INI em $s1
 	lw $t0, 0($s1) # address do inimigo 1
@@ -192,33 +203,83 @@ ADJUST: addi $t0, $t0, 8640 # prepara pra proxima linha
 	j LINHA
 
 SAI:
-	li $a0, 1000
-	jal SLEEP
+	
 	# mexendo o player
 	#################################################################### AGORA A COISA RODA ####################
-	
-	#debug urposes
-	la $a0, DEBUG
-	li $v0, 4
-	syscall
-	
+
+RESET:	li $s7, 0
+	j CHECK
 	
 CHECK:	
 	jal ECHO # ve se alguma tecla foi teclada
 	jal MS # move tiros
+	li $a0, 2000
+	jal SLEEP
 	move $s5, $t2 # salva a tecla em $s5
 	move $a0, $s6 # salva onde o player esta em $a0
 	beq $s5, maskA, ESQUERDA
 	beq $s5, maskD, DIREITA
 	beq $s5, maskSPACE, SHOOT
-	li $a0, 100	# pausa rapida
+	jal MS # move tiros
+	li $a0, 2000
 	jal SLEEP
 	j FOE
 	
-FOE:	jal MOVE_LINHA_DIREITA
-	jal MOVE_BAIXO
-	jal MOVE_LINHA_ESQUERDA
-	j FIM
+FOE:	# contador em $s7
+	
+	# vamos ver se algum inimigo atira
+	li $a0, 0 	# nao sei o q isso faz
+	li $a1, 10	# maior possibilidade de retorno
+	li $v0, 42 	# syscall para gerar numeros aleatorios
+	syscall
+	
+	slti $a0, $a0, 2 # chance de menos de 20% de sair um tiro inimigo
+	beq $a0, 1, EFIRE
+	li $a0, 2000
+	jal SLEEP
+EFIREBACK:	
+	
+	jal MES
+	li $a0, 2000
+	jal SLEEP
+	# o andamento dos inimigos eh controlado por um ciclo. Eles andam a cada 5 movimentaçoes do player. 
+	beq $s7, 0, M0
+	beq $s7, 10, M1
+	beq $s7, 20, M2
+	beq $s7, 30, M3
+	addi $s7, $s7, 1
+	
+	jal MES
+	li $a0, 2000
+	jal SLEEP
+	j CHECK
+	
+	
+M0:	jal MOVE_LINHA_DIREITA
+	li $a0, 1000
+	jal SLEEP
+	addi $s7, $s7, 1
+	j CHECK
+	
+M1:	jal MOVE_BAIXO
+	li $a0, 1000
+	jal SLEEP
+	addi $s7, $s7, 1
+	j CHECK
+	
+M2:	jal MOVE_LINHA_ESQUERDA
+	li $a0, 1000
+	jal SLEEP
+	addi $s7, $s7, 1
+	j CHECK
+	
+M3:	jal MOVE_BAIXO
+	li $a0, 1000
+	jal SLEEP
+	addi $s7, $s7, 1
+	j RESET
+
+
 ############################################## FUNCTIONS #########################################################
 #facilitando a chamada do sleep. $a0 deve conter o delay em milissegundos
 SLEEP:	li $v0, 32
@@ -496,14 +557,59 @@ R:	sw $a1, 0($v0)
 	
 DHIT:	addi $v0, $v0, 20
 	addi $v0, $v0, 1920
+	
+	# incrementa o score
+	la $s1, SCORE
+	lw $s2, 0($s1)
+	addi $s2, $s2, 20
+	sw $s2, 0($s1)
+	# mostra o novo score
+	
+	  move $a0,$s2	# o score
+	  li $a1,60	# coluna
+	  li $a2,230	#linha
+	  li $a3,0x71FB	# cores de frente(00) e fundo(FF) do texto
+	  li $v0,101	# print int	
+	  syscall	
+	    
 	j BIP
 	
 LEFT: 	addi $v0, $v0, 24
 	addi $v0, $v0, 1920
+	
+	# incrementa o score
+	la $s1, SCORE
+	lw $s2, 0($s1)
+	addi $s2, $s2, 10
+	sw $s2, 0($s1)
+	# mostra o novo score
+	
+	  move $a0,$s2	# o score
+	  li $a1,60	# coluna
+	  li $a2,230	#linha
+	  li $a3,0x71FB	# cores de frente(00) e fundo(FF) do texto
+	  li $v0,101	# print int	
+	  syscall	
+	    
 	j BIP
 	
 RIGHT: 	addi $v0, $v0, 12
 	addi $v0, $v0, 1920
+	
+	# incrementa o score
+	la $s1, SCORE
+	lw $s2, 0($s1)
+	addi $s2, $s2, 10
+	sw $s2, 0($s1)
+	# mostra o novo score
+	
+	  move $a0,$s2	# o score
+	  li $a1,60	# coluna
+	  li $a2,230	#linha
+	  li $a3,0x71FB	# cores de frente(00) e fundo(FF) do texto
+	  li $v0,101	# print int	
+	  syscall	
+	    
 	j BIP
 	
 ### mexendo os inimigos - para a direita
@@ -670,6 +776,7 @@ BARRY:		addi $t1, $t1, 40
 		addi $fp, $fp, 180
 		addi $t4, $t4, -1
 		addi $t1, $t1, 8640
+		
 		bne $t4, $0, L
 		
 		#atualiza address em INI
@@ -695,7 +802,11 @@ I:	sw $0, 0($t5)		# apaga
 	
 	# agora vamos criar novamente o garoto
 	move $t5, $t1 # salva adress de novo
-	addi $t5, $t5, 3200 # novo address, 3 words pra frente
+	addi $t5, $t5, 3200
+	li $s0, 0xFF000000
+	addi $s0, $s0, 70080
+	slt $s0, $t5, $s0
+	bne $s0, $0, PLAYA
 	li $t6, 5 # words por linha
 	li $t7, 9 # linhas
 J:	lw $t8, 0($fp)
@@ -721,6 +832,187 @@ J:	lw $t8, 0($fp)
 	
 	j BARRY
 	
-### Finaliza o programa		
-FIM:	li $v0,10
+### gerando tiros dos inimigos
+EFIRE:	la $t0, ESHOT
+	li $t3, 5 # numero max de tiros
+FIRE:	lw $t1, 0($t0)
+	beq $t1, $0, NEWEFIRE # se um novo tiro puder ser alocado, faz isso
+	addi $t0, $t0, 4 # checa se o prox tiro esta disponivel
+	addi $t3, $t3, -1 # evita um loop infinito
+	bne $t3, $0, FIRE
+	j EFIREBACK # se chegar aqui, nao ha tiros disponiveis
+
+
+NEWEFIRE: 
+# primeiro decidimos quem vai atirar
+	li $a0, 0 	# nao sei o q isso faz
+	li $a1, 76	# maior possibilidade de retorno
+	li $v0, 42 	# syscall para gerar numeros aleatorios
 	syscall
+	
+	la $t8, INI
+	lw $t1, 0($t8)
+	addi $t1, $t1, 30080 # pula pra ultima linha de inimigos
+	
+	mul $t2, $a0, 4 # transforma numero aleatorio em um multiplo de 4
+	add $t1, $t1, $t2 # o tiro vai sair daqui
+	
+	
+# e depois criamos o tiro
+	
+	# $t1 tem a position do tiro; $t8 tem o address do vetor para salvar
+	li $t7, 0xFFFFFFFF #branco
+	li $t6, 4
+	addi $t1, $t1, 320
+EB:	lw $t9, 0($t1)
+	la $v1, EF
+	bne $t9, maskBLACK, ECOLORTEST
+EF:	sw $t7, 0($t1)
+	addi $t1, $t1, 320
+	addi $t6, $t6, -1
+	bne $t6, $0, EB
+	sw $t1, 0($t0)
+	j EFIREBACK
+	
+### movendo os tiros inimigos
+### Movendo os tiros
+MES:	la $t0, ESHOT
+	li $t3, 5
+FEC:	lw $t1, 0($t0)
+	bne $t1, $0, EANDA
+AER:	addi $t0, $t0, 4
+	addi $t3, $t3, -1
+	bne $t3, $0, FEC
+	jr $ra #acabou retorna
+	
+EANDA:	move $t9, $t1 # salva position do tiro
+	li $t8, 0x00000000 # preto
+	sw $t8, 0($t9) # pinta lugar em que o tiro esta de preto. as 4 positions - 1
+	addi $t9, $t9, -320
+	sw $t8, 0($t9) # 2
+	addi $t9, $t9, -320
+	sw $t8, 0($t9) # 3
+	addi $t9, $t9, -320
+	sw $t8, 0($t9) # 4
+	addi $t9, $t9, -320
+	sw $t8, 0($t9) # 4
+	# ve se o tira nao acerta nada e desenha novo tiro
+	
+	li $t7, 0xFFFFFFFF #branco
+	li $t6, 4
+	addi $t1, $t1, 320 # tiro desce
+BE:	lw $t9, 0($t1)
+	la, $v1, FE
+	move $v0, $t1
+	bne $t9, maskBLACK, ECOLORTEST
+FE:	sw $t7, 0($t1)
+	addi $t1, $t1, 320
+	addi $t6, $t6, -1
+	bne $t6, $0, BE
+	
+	sw $t1, 0($t0)
+	j AER
+	
+### colortest versao inimigo
+ECOLORTEST:	
+# $t9 holds the color of whatever the shot hit # $v0 contem o address do que foi atingido 
+	# $t0 tem o address do tiro no vetor ESHOT
+	move $s0, $v0
+	li $t2, 0xFF000000
+	addi $t2, $t2, 70080
+	slt $s0, $s0, $t2
+	bne $s0, $0, CHAO
+	
+	move $s0, $t9
+	andi $s0, maskBARRIER1
+	beq $s0, maskBARRIER1, BARRIER
+	
+	move $s0, $t9
+	andi $s0, maskBARRIER2
+	beq $s0, maskBARRIER2, BARRIER
+	
+	move $s0, $t9
+	andi $s0, maskPLAYA1
+	beq $s0, maskPLAYA1, PLAYA
+	
+	move $s0, $t9
+	andi $s0, maskPLAYA2
+	beq $s0, maskPLAYA2, PLAYA
+	
+	move $s0, $t9
+	andi $s0, maskPLAYA3
+	beq $s0, maskPLAYA3, PLAYA
+	
+	move $s0, $t9
+	andi $s0, maskPLAYA4
+	beq $s0, maskPLAYA4, PLAYA
+	
+	move $s0, $t9
+	andi $s0, maskPLAYA5
+	beq $s0, maskPLAYA5, PLAYA
+
+	
+	jr $v1
+
+BIPE:	move $t9, $t1 # salva position do tiro
+	li $t8, 0x00000000 # preto
+	sw $t8, 0($t9) # pinta lugar em que o tiro esta de preto. as 4 positions - 1
+	sw $t8, 4($t9) # algo pra frente
+	sw $t8, -4($t9) # algo pra tras
+	addi $t9, $t9, -320
+	sw $t8, 0($t9) # 2
+	sw $t8, 4($t9) # algo pra frente
+	sw $t8, -4($t9) # algo pra tras
+	addi $t9, $t9, -320
+	sw $t8, 0($t9) # 3
+	addi $t9, $t9, -320
+	sw $t8, 0($t9) # 4
+	addi $t9, $t9, -320
+	sw $t8, 0($t9) # 4
+	addi $t9, $t9, -320
+	sw $t8, 0($t9) # 4
+	sw $0, 0($t0) # termina o tiro. abre space pra outro
+	
+	jr $v1
+	
+CHAO:	move $t9, $t1 # salva position do tiro
+	li $t8, 0x00000000 # preto
+	sw $t8, 0($t9) # pinta lugar em que o tiro esta de preto. as 4 positions - 1
+	addi $t9, $t9, -320
+	sw $t8, 0($t9) # 2
+	addi $t9, $t9, -320
+	sw $t8, 0($t9) # 3
+	addi $t9, $t9, -320
+	sw $t8, 0($t9) # 4
+	addi $t9, $t9, -320
+	sw $t8, 0($t9) # 4
+	addi $t9, $t9, -320
+	sw $t8, 0($t9) # 4
+	sw $0, 0($t0) # termina o tiro. abre space pra outro
+	j AER
+	
+BARRIER: j BIPE
+	
+PLAYA: 	la $t0, LIVES
+	lw $t1, 0($t0)
+	addi $t1, $t1, -1
+	beq $t1, $0, GAMEOVER
+	sw $t1, 0($t0)
+	j ABERTURA
+	
+### Finaliza o programa		
+GAMEOVER:	la $a0, GAMEOVER
+		jal ABRE
+		move $a0, $s0
+		
+	
+		la $a1,0xFF000000
+		li $a2,76800
+		li $v0,14
+		syscall
+		
+		move $a0, $s0
+		jal FECHA
+
+		li $v0,10
+		syscall
