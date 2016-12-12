@@ -148,22 +148,31 @@ ABERTURA: 	la $a0, LVL
 	beq $t0, 2, LIV2
 	j LIV3
 	
-LIV1:	la $a0, VIDA1
-	jal ABRE
-	move $s0, $v0
-	
-	li $t0, 12
-REP:	la $a1,0xff011e14
-	li $a2,42
-	li $v0,14
+LIV1:	# reabrindo o enter
+	la $a0,VIDA1
+	li $a1,0
+	li $a2,0
+	li $v0,13
 	syscall
 	
-	addi $t0, $t0, -1
-	addi $a1, $a1, 320
-	bne $t0, $0, REP
+	#lendo linha por linha
+	move $t7, $v0	#salva o file descriptor em $t7
+	addi $t1, $zero, 12 # numero de linhas
+		
+FILLV:	beq $t1, $zero, DONEV #vai pra DONE quando todas as linhas forem lidas
+	move $a0,$t7
+	li $a1, 0xff011e10	
+	li $a2, 44
+	li $v0,14 # syscall de ler do arquivo
+	syscall
+	addi $t1, $t1, -1 # prox linha
+	addi $s2, $s2, 320 # primeiro address da prox linha
+	j FILLV
 	
-	move $a0, $s0
-	jal FECHA
+DONEV:	#fecha o arquivo
+	move $a0,$t7
+	li $v0,16
+	syscall				
 	j LIV3
 	
 LIV2:	la $a0, VIDA2
@@ -171,8 +180,8 @@ LIV2:	la $a0, VIDA2
 	move $s0, $v0
 	
 	li $t0, 12
-REP2:	la $a1,0xff011e14
-	li $a2,42
+REP2:	li $a1,0xff011e10
+	li $a2,44
 	li $v0,14
 	syscall
 	
@@ -256,7 +265,7 @@ RESET:	li $s7, 0
 CHECK:	
 	jal ECHO # ve se alguma tecla foi teclada
 	jal MS # move tiros
-	li $a0, 2000
+	li $a0, 50
 	jal SLEEP
 	move $s5, $t2 # salva a tecla em $s5
 	move $a0, $s6 # salva onde o player esta em $a0
@@ -264,7 +273,21 @@ CHECK:
 	beq $s5, maskD, DIREITA
 	beq $s5, maskSPACE, SHOOT
 	jal MS # move tiros
-	li $a0, 2000
+	
+	# carrega o score
+	la $s1, SCORE
+	lw $s2, 0($s1)
+	# mostra o novo score
+	
+	  move $a0,$s2	# o score
+	  li $a1,60	# coluna
+	  li $a2,230	#linha
+	  li $a3,0x71FB	# cores de frente(00) e fundo(FF) do texto
+	  li $v0,101	# print int	
+	  syscall	
+	  
+	  
+	li $a0, 50
 	jal SLEEP
 	j FOE
 	
@@ -278,12 +301,12 @@ FOE:	# contador em $s7
 	
 	slti $a0, $a0, 2 # chance de menos de 20% de sair um tiro inimigo
 	beq $a0, 1, EFIRE
-	li $a0, 2000
+	li $a0, 50
 	jal SLEEP
 EFIREBACK:	
 	
 	jal MES
-	li $a0, 2000
+	li $a0, 50
 	jal SLEEP
 	# o andamento dos inimigos eh controlado por um ciclo. Eles andam a cada 5 movimentaçoes do player. 
 	beq $s7, 0, M0
@@ -293,31 +316,31 @@ EFIREBACK:
 	addi $s7, $s7, 1
 	
 	jal MES
-	li $a0, 2000
+	li $a0, 50
 	jal SLEEP
 	j CHECK
 	
 	
 M0:	jal MOVE_LINHA_DIREITA
-	li $a0, 1000
+	li $a0, 500
 	jal SLEEP
 	addi $s7, $s7, 1
 	j CHECK
 	
 M1:	jal MOVE_BAIXO
-	li $a0, 1000
+	li $a0, 500
 	jal SLEEP
 	addi $s7, $s7, 1
 	j CHECK
 	
 M2:	jal MOVE_LINHA_ESQUERDA
-	li $a0, 1000
+	li $a0, 500
 	jal SLEEP
 	addi $s7, $s7, 1
 	j CHECK
 	
 M3:	jal MOVE_BAIXO
-	li $a0, 1000
+	li $a0, 500
 	jal SLEEP
 	addi $s7, $s7, 1
 	j RESET
@@ -472,6 +495,8 @@ TFIRE:	lw $t1, 0($t0)
 	addi $t0, $t0, 4 # checa se o prox tiro esta disponivel
 	addi $t3, $t3, -1 # evita um loop infinito
 	bne $t3, $0, TFIRE
+	
+	
 	j CHECK # se chegar aqui, nao ha tiros disponiveis
 	
 NEWFIRE: 	# novo tiro
@@ -489,6 +514,16 @@ NF:	sw $t7, 0($a0)
 	addi $t6, $t6, -1
 	bne $t6, $0, NB
 	sw $a0, 0($t0)
+	
+	#som de tiro do personagem
+
+	li $a0, 67
+	li $a1, 300
+	li $a2, 127
+	li $a3, 80
+	li $v0, 33	#dar inicio a chamada de som, MIDI (espera o som terminar)
+	syscall
+	
 	j CHECK
 	
 ### Movendo os tiros
@@ -602,58 +637,28 @@ R:	sw $a1, 0($v0)
 DHIT:	addi $v0, $v0, 20
 	addi $v0, $v0, 1920
 	
-	# incrementa o score
-	la $s1, SCORE
+	la $s1, SCORE	# aumenta o score
 	lw $s2, 0($s1)
-	addi $s2, $s2, 20
+	addi $s2, $s2, 10
 	sw $s2, 0($s1)
-	# mostra o novo score
-	
-	  move $a0,$s2	# o score
-	  li $a1,60	# coluna
-	  li $a2,230	#linha
-	  li $a3,0x71FB	# cores de frente(00) e fundo(FF) do texto
-	  li $v0,101	# print int	
-	  syscall	
-	    
 	j BIP
 	
 LEFT: 	addi $v0, $v0, 24
 	addi $v0, $v0, 1920
 	
-	# incrementa o score
-	la $s1, SCORE
+	la $s1, SCORE	# aumenta o score
 	lw $s2, 0($s1)
 	addi $s2, $s2, 10
 	sw $s2, 0($s1)
-	# mostra o novo score
-	
-	  move $a0,$s2	# o score
-	  li $a1,60	# coluna
-	  li $a2,230	#linha
-	  li $a3,0x71FB	# cores de frente(00) e fundo(FF) do texto
-	  li $v0,101	# print int	
-	  syscall	
-	    
 	j BIP
 	
 RIGHT: 	addi $v0, $v0, 12
 	addi $v0, $v0, 1920
 	
-	# incrementa o score
-	la $s1, SCORE
+	la $s1, SCORE	# aumenta o score
 	lw $s2, 0($s1)
 	addi $s2, $s2, 10
 	sw $s2, 0($s1)
-	# mostra o novo score
-	
-	  move $a0,$s2	# o score
-	  li $a1,60	# coluna
-	  li $a2,230	#linha
-	  li $a3,0x71FB	# cores de frente(00) e fundo(FF) do texto
-	  li $v0,101	# print int	
-	  syscall	
-	    
 	j BIP
 	
 ### mexendo os inimigos - para a direita
@@ -848,9 +853,9 @@ I:	sw $0, 0($t5)		# apaga
 	move $t5, $t1 # salva adress de novo
 	addi $t5, $t5, 3200
 	li $s0, 0xFF000000
-	addi $s0, $s0, 70080
+	addi $s0, $s0, 66240
 	slt $s0, $t5, $s0
-	bne $s0, $0, PLAYA
+	beq $s0, $0, PLAYA
 	li $t6, 5 # words por linha
 	li $t7, 9 # linhas
 J:	lw $t8, 0($fp)
@@ -916,6 +921,15 @@ EF:	sw $t7, 0($t1)
 	addi $t6, $t6, -1
 	bne $t6, $0, EB
 	sw $t1, 0($t0)
+	
+	#som tiro inimigo
+
+	li $a0, 100
+	li $a1, 250
+	li $a2, 118
+	li $a3, 80
+	li $v0, 33	#dar inicio a chamada de som, MIDI (espera o som terminar)
+	syscall
 	j EFIREBACK
 	
 ### movendo os tiros inimigos
@@ -963,9 +977,9 @@ ECOLORTEST:
 	# $t0 tem o address do tiro no vetor ESHOT
 	move $s0, $v0
 	li $t2, 0xFF000000
-	addi $t2, $t2, 70080
+	addi $t2, $t2, 66240
 	slt $s0, $s0, $t2
-	bne $s0, $0, CHAO
+	beq $s0, $0, CHAO
 	
 	move $s0, $t9
 	andi $s0, maskBARRIER1
@@ -1017,7 +1031,7 @@ BIPE:	move $t9, $t1 # salva position do tiro
 	sw $t8, 0($t9) # 4
 	sw $0, 0($t0) # termina o tiro. abre space pra outro
 	
-	jr $v1
+	j AER
 	
 CHAO:	move $t9, $t1 # salva position do tiro
 	li $t8, 0x00000000 # preto
@@ -1042,6 +1056,16 @@ PLAYA: 	la $t0, LIVES
 	addi $t1, $t1, -1
 	beq $t1, $0, GAME_OVER
 	sw $t1, 0($t0)
+	
+	#som de explosão do personagem
+	
+	li $a0, 48
+	li $a1, 420
+	li $a2, 127
+	li $a3, 120
+	li $v0, 33	#dar inicio a chamada de som, MIDI (espera o som terminar)
+	syscall
+	
 	j ABERTURA
 	
 ### Finaliza o programa		
