@@ -1,5 +1,13 @@
 ###################################
-# SPACE INVADERS - ASSEMBLY MIPS  #
+# SPACE INVADERS - ASSEMBLY MIPS 
+
+ # Por Giovanni Guidini, Vitor Dulens e Gabriel Bessa.
+ 
+ # Lembre de abrir o bitmap display e keyboard MMIO Simulator
+ # Lembre de adicionar o arquivo SYSTEMv53.s como Exception handler
+ 
+ # use 'a' e 'd' para mexer. Barra de espaço atira.
+ 
 ###################################
 .eqv maskD 100
 .eqv maskA 97
